@@ -1,0 +1,9 @@
+idf_component_register(SRCS "main.c"
+							"BMP390.c"
+							"espnow_.c"
+							"HDC3020.c"
+							"io.c"
+							"SHT45.c"
+							"MAX17048.c"
+							"AS3935.c"
+                    INCLUDE_DIRS ".")
