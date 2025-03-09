@@ -183,6 +183,9 @@ void app_main(void)
 	ductData_t data; 
 	time_t timestamp;
 	double batt_volts, batt_soc;
+	uint8_t lightning_status;
+	uint8_t distance;
+	uint32_t energy;
 	esp_err_t ret;
 	
 	esp_err_t err = nvs_flash_init();
@@ -313,6 +316,9 @@ void app_main(void)
 	
 	//////////////////// Lightning Detector ///////////////////////
 	AS3935_createSemaphores();
+	lightning_status = 0;
+	distance = 0;
+	energy = 0;
 	
 	if( read_AS3935 | !( sensor_initialized & AS3935_INITIALIZED ) )
 	{
@@ -331,6 +337,15 @@ void app_main(void)
 			if( read_AS3935 )
 			{
 				// read lightning data
+				printf("Reading Lightning Data\n");
+				if( get_lightning_data( &lightning_status, &energy, &distance ) == ESP_OK )
+				{
+					printf( "Status: %x, Distance: %u, Energy: %lu\n", lightning_status, distance, energy );
+				}
+				else
+				{
+					printf("Lightning Data Read Failed\n");
+				}
 				
 			}
 			else
@@ -347,15 +362,16 @@ void app_main(void)
 					{
 						printf("AS3935 Not Calibrated.\n");
 					}
-			// /*		
+//#define DISABLE_DISTURBER
+#ifdef DISABLE_DISTURBER			 	
 					// disable Disturber Interrupt
 					if( set_AS3935_reg( REG_X03, MASK_DIST_BIT ) == ESP_OK )
 						printf("Disturber interrupt diabled\n");
 					else printf("Disable Disturber interrupt failed\n");
+#endif
+	
 				}
 			}
-	// */	
-	 // /*
 	 	}
 	 }
 
@@ -372,7 +388,7 @@ void app_main(void)
     data.air_pressure_temp = BMP_temperature;
     data.batt_volts = batt_volts;
     data.batt_soc = batt_soc;
-    data.location_id = FRONT_YARD;
+    data.location_id = WEST_SIDE;
     data.time = timestamp;
     
     downloadDuct( &data );

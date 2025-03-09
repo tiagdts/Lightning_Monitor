@@ -69,5 +69,6 @@ void wifi_connect_LED_on( void );
 void wifi_connect_LED_off( void );
 //void display_ip_address( wifi_status_t *wifi_status );
 bool get_connection_state( void );
+esp_err_t init_SPI( void );
 
 #endif /* MAIN_IO_H_ */

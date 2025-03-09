@@ -14,6 +14,7 @@ static uint16_t expected_addresses[EXPECTED_I2C_ADDRESSES] = {MAX17048, SHT45, B
 
 
 SemaphoreHandle_t xSemaphore_I2C;
+SemaphoreHandle_t xSemaphore_SPI;
 
 
 void wifi_connect_LED_off( void )

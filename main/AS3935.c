@@ -35,37 +35,42 @@ esp_err_t get_lightning( uint32_t *energy, uint8_t *distance )
 	return ret;
 }
 
-esp_err_t get_lightning_data( uint8_t *status, )
+esp_err_t get_lightning_data( uint8_t *status, uint32_t *energy, uint8_t *distance )
 {
-				printf("AS3935 Interrupt: ");
-				// delay 2ms before reading register (AS3935 datasheet ([v1-04] 2016-Jan-13) page 34 )
-				vTaskDelay(2 / portTICK_PERIOD_MS);
-				if( get_AS3935_reg( REG_X03, &IRQ ) == ESP_OK )
-				{
-					if( IRQ & INT_BITS )
-					{
-						if( IRQ & INT_NH  )
-						{
-							printf("\n  Noise level to high.\n");
-						}
-						
-						if( IRQ & INT_D )
-						{
-							printf("\n  Disturber detected\n");
-						}
-						
-						if( IRQ & INT_L )
-						{
-							printf("\n  Lightning detected\n");
-							energy = 0;
-							distance = 0;
-							get_lightning(&energy, &distance );
-							printf( "Energy: %lu, Distance: %u\n", energy, distance );
-							
-						}
-						
-					} else printf("none\n");		
-				} else printf("Interrupt Register Read Failed\n");
+	uint8_t IRQ;
+	esp_err_t ret;
+
+	printf("AS3935 Interrupt: ");
+	// delay 2ms before reading register (AS3935 datasheet ([v1-04] 2016-Jan-13) page 34 )
+	vTaskDelay(2 / portTICK_PERIOD_MS);
+	if( (ret = get_AS3935_reg( REG_X03, &IRQ ) ) == ESP_OK ) 
+	{
+		*status = IRQ;
+		if( IRQ & INT_BITS )
+		{
+			if( IRQ & INT_NH  )
+			{
+				printf("\n  Noise level to high.\n");
+			}
+			
+			if( IRQ & INT_D )
+			{
+				printf("\n  Disturber detected\n");
+			}
+			
+			if( IRQ & INT_L )
+			{
+				printf("\n  Lightning detected\n");
+				*energy = 0;
+				*distance = 0;
+				get_lightning(energy, distance );
+				printf( "Energy: %lu, Distance: %u\n", *energy, *distance );
+			}
+			
+		} else printf("none\n");		
+	} else printf("Interrupt Register Read Failed\n");
+	
+	return ret;
 }
 
 void AS3935_createSemaphores(void)
