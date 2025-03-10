@@ -18,6 +18,7 @@
 #include "driver/spi_master.h"
 
 #include "io.h"
+#include "Station_Data_Types.h"
 
 // #define AS3935				0x01
 #define AS3935_CLOCK 		1000000
@@ -111,7 +112,7 @@ esp_err_t add_AS3935_to_SPI_bus( void );
 esp_err_t get_AS3935_reg( uint8_t reg, uint8_t *value );
 esp_err_t set_AS3935_reg( uint8_t reg, uint8_t value );
 esp_err_t direct_command_AS3935( uint8_t reg );
-esp_err_t calibrate_AS3935( void );
+esp_err_t calibrate_AS3935( uint16_t location );
 void AS3935_createSemaphores(void);
 void AS3935_isr_handler(void* arg);
 esp_err_t get_AS3935_reg32( uint8_t reg, uint32_t *value );

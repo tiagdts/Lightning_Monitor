@@ -173,7 +173,7 @@ esp_err_t tune_TCO_AS3935( uint8_t tuning )
 	return ret;
 }
 
-esp_err_t calibrate_AS3935( void )
+esp_err_t calibrate_AS3935( uint16_t location )
 {
 	esp_err_t ret = 0;
 	
@@ -228,6 +228,16 @@ esp_err_t calibrate_AS3935( void )
 	{
 		printf("Disabling SRCO output on interrupt pin\n");
 	} else printf("Disabling SRCO output on interrupt pin failed\n");
+	
+	// set the gain based on the sensor location
+	if( location > OUTSIDE )
+		data = OUTDOOR_AFE;
+	else data = INDOOR_AFE;
+	
+	if( set_AS3935_reg( REG_X00, data ) == ESP_OK )
+	{
+		printf("Set AFE to %x\n",data);
+	} else printf("Setting AFE failed\n");
 
 	return ret;
 }

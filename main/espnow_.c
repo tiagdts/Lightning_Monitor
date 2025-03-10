@@ -135,6 +135,9 @@ pondData_t loc_pondData;
 // duct data
 ductData_t loc_ductData;
 
+// lightning data
+lightningData_t loc_lightningData;
+
 void clrDataTypesToSendAll(void)
 {
 	uint32_t i;
@@ -825,9 +828,6 @@ int16_t updatePondloc( pondData_t *data )
 }
 
 
-
-
-
 static void printDuctData(void)
 {
 	printf("Duct Data: %lld, %d, %2.2f, %3.1f, %2.2f, %3.1f, %1.3lf, %2.1lf\n\r", loc_ductData.time, loc_ductData.location_id, loc_ductData.air_temperature,
@@ -894,6 +894,84 @@ void downloadDuct( ductData_t *data )
 		loc_ductData.batt_volts = data->batt_volts;
 		loc_ductData.batt_soc = data->batt_soc;
 }
+
+//////////////////
+static void printLightningData(void)
+{
+	printf("Lightning Data: %lld, %d, %2.2f, %3.1f, %2.2f, %3.1f, %1.3lf, %2.1lf, x%x, %u, %lu\n\r", loc_lightningData.time, loc_lightningData.location_id, loc_lightningData.air_temperature,
+			loc_lightningData.air_humidity, loc_lightningData.air_pressure, loc_lightningData.air_pressure_temp, loc_lightningData.batt_volts, loc_lightningData.batt_soc,
+			loc_lightningData.irq_status, loc_lightningData.distance, loc_lightningData.energy );
+}
+
+int16_t updateLightning( lightningData_t *data )
+{
+	if( xSemaphoreTake( xSemaphore_data_access, TASK_DATA_WAIT_TIME / portTICK_PERIOD_MS ) == pdTRUE )
+	{
+		data->air_temperature = loc_lightningData.air_temperature;
+		data->air_humidity = loc_lightningData.air_humidity;
+		data->air_pressure = loc_lightningData.air_pressure;
+		data->air_pressure_temp = loc_lightningData.air_pressure_temp;
+		data->location_id = loc_lightningData.location_id;
+		data->time = loc_lightningData.time;
+		data->batt_volts = loc_lightningData.batt_volts;
+		data->batt_soc = loc_lightningData.batt_soc;
+		data->irq_status = loc_lightningData.irq_status;
+		data->distance = loc_lightningData.distance;
+		data->energy = loc_lightningData.energy;
+		// clear status bit
+		dataReadyStatus = dataReadyStatus & ~LIGHTNING_DATA_RDY;
+
+		xSemaphoreGive( xSemaphore_data_access );
+
+		return DATA_READ;
+	}
+
+	return DATA_READ_TIMEOUT;
+}
+
+int16_t updateLightningloc( lightningData_t *data )
+{
+	if( xSemaphoreTake( xSemaphore_data_access, TASK_DATA_WAIT_TIME / portTICK_PERIOD_MS ) == pdTRUE )
+	{
+		loc_lightningData.air_temperature = data->air_temperature;
+		loc_lightningData.air_humidity = data->air_humidity;
+		loc_lightningData.air_pressure = data->air_pressure;
+		loc_lightningData.air_pressure_temp = data->air_pressure_temp;
+		loc_lightningData.location_id = data->location_id;
+		loc_lightningData.time = data->time;
+		loc_lightningData.batt_volts = data->batt_volts;
+		loc_lightningData.batt_soc = data->batt_soc;
+		loc_lightningData.irq_status = data->irq_status;
+		loc_lightningData.distance = data->distance;
+		loc_lightningData.energy = data->energy;
+
+		// indicate data new since last send
+		dataNewStatus = dataNewStatus | LIGHTNING_DATA_RDY;
+
+		xSemaphoreGive( xSemaphore_data_access );
+
+		return DATA_READ;
+	}
+
+	return DATA_READ_TIMEOUT;
+
+}
+
+void downloadLightning( lightningData_t *data )
+{
+		loc_lightningData.air_temperature = data->air_temperature;
+		loc_lightningData.air_humidity = data->air_humidity;
+		loc_lightningData.air_pressure = data->air_pressure;
+		loc_lightningData.air_pressure_temp = data->air_pressure_temp;
+		loc_lightningData.location_id = data->location_id;
+		loc_lightningData.time = data->time;
+		loc_lightningData.batt_volts = data->batt_volts;
+		loc_lightningData.batt_soc = data->batt_soc;
+		loc_lightningData.irq_status = data->irq_status;
+		loc_lightningData.distance = data->distance;
+		loc_lightningData.energy = data->energy;
+}
+//////////////////
 
 static void downloadPond( pondData_t *data )
 {
@@ -1248,6 +1326,10 @@ int espnow_data_parse(uint8_t *data, uint16_t data_len, uint16_t *seq, uint8_t *
 		    case DUCT_DATA :
 		    		memcpy(payload, buf->payload, sizeof( ductData_t ) );
 		    	break;
+		    	
+		    case LIGHTNING_DATA :
+		    		memcpy(payload, buf->payload, sizeof( lightningData_t ) );
+		    	break;
 
     		default :
     			buf->payload_type =  NO_DATA;
@@ -1348,6 +1430,12 @@ void espnow_data_prepare(espnow_send_param_t *send_param, uint8_t dataType )
 			// fill payload with current pond calibration data
 			updateDuct( (ductData_t *) (&buf->payload ) );
 			printDuctData();
+			break;
+			
+		case LIGHTNING_DATA :
+			// fill payload with current pond calibration data
+			updateLightning( (lightningData_t *) (&buf->payload ) );
+			printLightningData();
 			break;
 
 		case NO_DATA :
@@ -1674,7 +1762,7 @@ esp_err_t espnow_init(void)
         return ESP_FAIL;
     }
     memcpy(send_param->dest_mac, s_unicast_mac, ESP_NOW_ETH_ALEN);
-    espnow_data_prepare( send_param, DUCT_DATA );
+    espnow_data_prepare( send_param, LIGHTNING_DATA );
     //printDuctData();
 
     xTaskCreate(espnow_task, "espnow_task", 4096, send_param, 4, NULL);

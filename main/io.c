@@ -39,6 +39,7 @@ void io_createSemaphores(void)
 	// create mutex semaphores to be used for SPI bus access
 	// 	between Tasks
 	xSemaphore_I2C = xSemaphoreCreateMutex();
+	xSemaphore_SPI = xSemaphoreCreateMutex();
 
 }
 
@@ -98,7 +99,7 @@ esp_err_t init_I2C(i2c_master_bus_handle_t *bus_handle)
 
     ESP_ERROR_CHECK(ret = i2c_new_master_bus(&i2c_bus_config, bus_handle));
 
-	// create I2 mutex semaphores
+	// create I2 and SPI mutex semaphores
 	io_createSemaphores();
 	return ret;
 }

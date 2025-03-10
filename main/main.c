@@ -27,8 +27,8 @@
 
 #include "driver/gpio.h"
 
-
-
+// uint16_t sensor_location = WEST_SIDE;
+uint16_t sensor_location = KITCHEN;	
 #if SOC_RTC_FAST_MEM_SUPPORTED
 static RTC_DATA_ATTR struct timeval sleep_enter_time;
 static RTC_DATA_ATTR uint8_t sensor_initialized;
@@ -180,7 +180,7 @@ void app_main(void)
 {
 	float BMP_temperature = -100, BMP_pressure = -100, BMP_tempC = -100;
 	float temperature, humidity, SHT45_tempC;
-	ductData_t data; 
+	lightningData_t data; 
 	time_t timestamp;
 	double batt_volts, batt_soc;
 	uint8_t lightning_status;
@@ -319,7 +319,7 @@ void app_main(void)
 	lightning_status = 0;
 	distance = 0;
 	energy = 0;
-	
+	printf("Sensor Initaliztion Status 0x%x\n", sensor_initialized );
 	if( read_AS3935 | !( sensor_initialized & AS3935_INITIALIZED ) )
 	{
 		if( init_SPI(  ) == ESP_OK )
@@ -352,7 +352,7 @@ void app_main(void)
 			{
 				if(!( sensor_initialized & AS3935_INITIALIZED ) )
 				{
-					if( calibrate_AS3935( ) == ESP_OK )
+					if( calibrate_AS3935( sensor_location ) == ESP_OK )
 					{
 						printf("AS3935 Calibrated.\n");
 						// set AS3935 bit while maintaining other bits
@@ -362,7 +362,7 @@ void app_main(void)
 					{
 						printf("AS3935 Not Calibrated.\n");
 					}
-//#define DISABLE_DISTURBER
+#define DISABLE_DISTURBER
 #ifdef DISABLE_DISTURBER			 	
 					// disable Disturber Interrupt
 					if( set_AS3935_reg( REG_X03, MASK_DIST_BIT ) == ESP_OK )
@@ -371,9 +371,11 @@ void app_main(void)
 #endif
 	
 				}
+				else printf("AS3935 previously calibrated\n");
 			}
 	 	}
 	 }
+	 else printf("No AS3935 activity\n");
 
 		
 	////////////////////
@@ -388,10 +390,13 @@ void app_main(void)
     data.air_pressure_temp = BMP_temperature;
     data.batt_volts = batt_volts;
     data.batt_soc = batt_soc;
-    data.location_id = WEST_SIDE;
+    data.location_id = sensor_location;
     data.time = timestamp;
+    data.irq_status = lightning_status;
+    data.distance = distance;
+    data.energy = energy;
     
-    downloadDuct( &data );
+    downloadLightning( &data );
     
     // start wifi
 	wifi_init();
@@ -399,13 +404,9 @@ void app_main(void)
 	//TaskHandle_t handle_BMP390_task = NULL;
 	//xTaskCreate(&BMP390_Task, "BMP390_task", 2048, NULL, 2, &handle_BMP390_task );
 	
-
-	
 	// start sensor network
 	espnow_init();
 
-   
-    
     while(1)
     {
 

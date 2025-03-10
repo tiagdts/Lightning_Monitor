@@ -127,6 +127,9 @@ int16_t updatePondloc( pondData_t *data );
 int16_t  updateDuct( ductData_t *data );
 int16_t updateDuctloc( ductData_t *data );
 void downloadDuct( ductData_t *data );
+int16_t  updateLightning( lightningData_t *data );
+int16_t updateLightningloc( lightningData_t *data );
+void downloadLightning( lightningData_t *data );
 
 bool getReadyToSleep(void);
 void clrReadyToSleep(void);
