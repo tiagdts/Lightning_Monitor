@@ -17,6 +17,40 @@ SemaphoreHandle_t xSemaphore_AS3935;
 
 static spi_device_handle_t spi;
 
+esp_err_t get_calibration_status( uint8_t *SRCO_status, uint8_t *TRCO_status)
+{
+	esp_err_t ret;
+	printf("SRCO calibration Status\n "); 
+	if( (ret = get_AS3935_reg( REG_X3B, SRCO_status ) ) == ESP_OK )
+	{
+		*SRCO_status = *SRCO_status & ( SRCO_CALIB_DONE | SRCO_CALIB_NOK );
+		if( *SRCO_status & SRCO_CALIB_DONE )
+		{
+			printf("  A3935 SRCO Calibrated: %x\n", *SRCO_status);
+		}
+		else if( *SRCO_status & SRCO_CALIB_NOK )
+		{
+			printf("  A3935 SRCO Not Calibrated: %x\n", *SRCO_status);
+		}
+	} else printf("  SRCO Calibration Status Check Failed\n");
+	
+	printf("TRCO calibration Status\n ");
+	if( (ret = get_AS3935_reg( REG_X3A, TRCO_status ) ) == ESP_OK )
+	{
+		*TRCO_status = *TRCO_status & ( TRCO_CALIB_DONE | TRCO_CALIB_NOK );
+		if( *TRCO_status & TRCO_CALIB_DONE )
+		{
+			printf("  A3935 TRCO Calibrated: %x\n", *TRCO_status);
+		}
+		else if( *TRCO_status & TRCO_CALIB_NOK )
+		{
+			printf("  A3935 TRCO Not Calibrated: %x\n", *TRCO_status);
+		}
+	} else printf("  TRCO Calibration Status Check Failed\n");
+	
+	return ret;
+}
+
 esp_err_t get_lightning( uint32_t *energy, uint8_t *distance )
 {
 	esp_err_t ret = ESP_OK;

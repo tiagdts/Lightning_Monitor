@@ -119,5 +119,6 @@ esp_err_t get_AS3935_reg32( uint8_t reg, uint32_t *value );
 void AS3935_Task(void *pvParameter);
 esp_err_t get_lightning( uint32_t *energy, uint8_t *distance );
 esp_err_t get_lightning_data( uint8_t *status, uint32_t *energy, uint8_t *distance );
+esp_err_t get_calibration_status( uint8_t *SRCO_status, uint8_t *TRCO_status );
 #endif /* MAIN_AS3935_H_ */
 

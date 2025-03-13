@@ -319,6 +319,7 @@ void app_main(void)
 	lightning_status = 0;
 	distance = 0;
 	energy = 0;
+#ifdef OLD_A3935
 	printf("Sensor Initaliztion Status 0x%x\n", sensor_initialized );
 	if( read_AS3935 | !( sensor_initialized & AS3935_INITIALIZED ) )
 	{
@@ -376,7 +377,65 @@ void app_main(void)
 	 	}
 	 }
 	 else printf("No AS3935 activity\n");
+#else
+	printf("Sensor Initaliztion Status 0x%x\n", sensor_initialized );
 
+	if( init_SPI(  ) == ESP_OK )
+	{
+		printf("SPI Bus Initialized\n");
+		if( add_AS3935_to_SPI_bus( ) == ESP_OK )
+		{
+			printf("AS3935 added to SPI Bus\n");
+			if( read_AS3935 )
+			{
+				// read lightning data
+				printf("Reading Lightning Data\n");
+				if( get_lightning_data( &lightning_status, &energy, &distance ) == ESP_OK )
+				{
+					printf( "Status: %x, Distance: %u, Energy: %lu\n", lightning_status, distance, energy );
+				}
+				else
+				{
+					printf("Lightning Data Read Failed\n");
+				}
+				
+			}
+			else
+			{
+				uint8_t SRCO_status = 0, TRCO_status = 0;
+				if( get_calibration_status( &SRCO_status, &TRCO_status ) == ESP_OK )
+				{
+					if( !( SRCO_status & SRCO_CALIB_DONE ) || !( TRCO_status & TRCO_CALIB_DONE ) )
+					{
+						if( calibrate_AS3935( sensor_location ) == ESP_OK )
+						{
+							printf("AS3935 Calibrated.\n");
+							// set AS3935 bit while maintaining other bits
+							sensor_initialized = sensor_initialized | AS3935_INITIALIZED; 
+						}
+						else
+						{
+							printf("AS3935 Not Calibrated.\n");
+						}
+	#define DISABLE_DISTURBER
+	#ifdef DISABLE_DISTURBER			 	
+						// disable Disturber Interrupt
+						if( set_AS3935_reg( REG_X03, MASK_DIST_BIT ) == ESP_OK )
+							printf("Disturber interrupt diabled\n");
+						else printf("Disable Disturber interrupt failed\n");
+	#endif
+					}
+					else printf("AS3935 previously calibrated\n");
+				}
+	 		}
+		}
+		else
+		{
+			printf("SPI Bus Not Initialized\n");
+		}
+	 }
+	 else printf("No AS3935 activity\n");
+#endif
 		
 	////////////////////
 	
