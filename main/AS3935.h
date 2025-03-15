@@ -62,6 +62,9 @@ Minimum Number of Lightning 	REG0x02[5] REG0x02[4]
 #define 		INT_D			0b0100			//		Disturber detected
 #define 		INT_L			0b1000			//		Lightning interrupt	
 
+#define NOISE_LEVEL_HIGH		0x01
+#define NOISE_LEVEL_GOOD		0x00
+
 /*
 Interrupt Name 	REG0x03[3:0] 			Description
 	INT_NH 			0001 			Noise level too high

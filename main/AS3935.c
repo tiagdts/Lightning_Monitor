@@ -84,7 +84,7 @@ esp_err_t get_lightning_data( uint8_t *status, uint32_t *energy, uint8_t *distan
 		{
 			if( IRQ & INT_NH  )
 			{
-				printf("\n  Noise level to high.\n");
+				printf("\n  Noise level too high.\n");
 			}
 			
 			if( IRQ & INT_D )

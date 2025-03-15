@@ -32,6 +32,7 @@ uint16_t sensor_location = KITCHEN;
 #if SOC_RTC_FAST_MEM_SUPPORTED
 static RTC_DATA_ATTR struct timeval sleep_enter_time;
 static RTC_DATA_ATTR uint8_t sensor_initialized;
+static RTC_DATA_ATTR uint8_t noise_status;
 static uint8_t read_AS3935 = 0;
 #else
 static struct timeval sleep_enter_time;
@@ -75,17 +76,6 @@ static void deep_sleep_task(void *args)
      */
      
      esp_err_t err;
-     
-//#if !SOC_RTC_FAST_MEM_SUPPORTED
-    // Initialize NVS
-//    esp_err_t err = nvs_flash_init();
- //   if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-//        // NVS partition was truncated and needs to be erased
-        // Retry nvs_flash_init
-//        ESP_ERROR_CHECK(nvs_flash_erase());
-//        err = nvs_flash_init();
-//    }
-//    ESP_ERROR_CHECK(err);
 
     nvs_handle_t nvs_handle;
     err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
@@ -100,6 +90,7 @@ static void deep_sleep_task(void *args)
     nvs_get_i32(nvs_handle, "slp_enter_usec", (int32_t *)&sleep_enter_time.tv_usec);
     // Get AS3935 initialization status
     nvs_get_u8(nvs_handle, "sensor_status", (uint8_t *)&sensor_initialized);
+    nvs_get_u8(nvs_handle, "noise_level", (uint8_t *)&noise_status);
 //#endif
 
     struct timeval now;
@@ -108,6 +99,12 @@ static void deep_sleep_task(void *args)
 
     switch (esp_sleep_get_wakeup_cause()) {
         case ESP_SLEEP_WAKEUP_TIMER: {
+			/* When noise_status is set, the AS3935 interrupt was disabled due to too much noise
+				read_AS3935 is normally set from the GPIO interrupt below
+				we need to read the AS3935 to see if the noise is still present
+			*/
+			if(noise_status) read_AS3935 = 1;
+			
             printf("Wake up from timer. Time spent in deep sleep: %dms\n", sleep_time_ms);
             break;
         }
@@ -119,8 +116,7 @@ static void deep_sleep_task(void *args)
             {
                 int pin = __builtin_ffsll(wakeup_pin_mask) - 1;
                 printf("Wake up from GPIO %d\n", pin);
-                read_AS3935 = 1;
-                
+                read_AS3935 = 1;    
             }
             else
             {
@@ -133,6 +129,9 @@ static void deep_sleep_task(void *args)
         case ESP_SLEEP_WAKEUP_UNDEFINED:
         default:
             printf("Not a deep sleep reset\n");
+ 			sensor_initialized = 0;
+			noise_status = NOISE_LEVEL_GOOD;
+			read_AS3935 = 0;
     }
 
     //vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -160,6 +159,7 @@ static void deep_sleep_task(void *args)
 	    ESP_ERROR_CHECK(nvs_set_i32(nvs_handle, "slp_enter_sec", sleep_enter_time.tv_sec));
 	    ESP_ERROR_CHECK(nvs_set_i32(nvs_handle, "slp_enter_usec", sleep_enter_time.tv_usec));
 	    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "sensor_status", sensor_initialized) );
+	    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "noise_level", noise_status) );
 	    ESP_ERROR_CHECK(nvs_commit(nvs_handle));
 	    nvs_close(nvs_handle);
 	//#endif
@@ -199,19 +199,17 @@ void app_main(void)
     // create binary semaphores for Interrupt Service routine
 	xSemaphore_DataReady = xSemaphoreCreateBinary();
 	
-    
-    /* Enable wakeup from deep sleep by rtc timer */
+	/* Enable wakeup from deep sleep by rtc timer */
     deep_sleep_register_rtc_timer_wakeup();
-    
-#if CONFIG_EXAMPLE_GPIO_WAKEUP
-    /* Enable wakeup from deep sleep by gpio */
-    example_deep_sleep_register_gpio_wakeup();
-#endif
-    
-   	xTaskCreate(deep_sleep_task, "deep_sleep_task", 4096, NULL, 6, NULL);
-    
-   // io_createSemaphores( );
-    
+	
+	#if CONFIG_EXAMPLE_GPIO_WAKEUP
+	/* Enable wakeup from deep sleep by gpio */
+	example_deep_sleep_register_gpio_wakeup();
+	#endif
+	
+	xTaskCreate(deep_sleep_task, "deep_sleep_task", 4096, NULL, 6, NULL);
+
+	 
     init_GPIO( );
     // Initialize I2C port
 	if( init_I2C( &i2c_bus_handle ) == ESP_OK )
@@ -392,10 +390,17 @@ void app_main(void)
 				printf("Reading Lightning Data\n");
 				if( get_lightning_data( &lightning_status, &energy, &distance ) == ESP_OK )
 				{
+					if(lightning_status & INT_NH )
+					{
+						printf("Noise level too high\n");
+						printf("  Disabling Lightning interrupt\n");
+						noise_status = NOISE_LEVEL_HIGH;
+					}
+					else noise_status = NOISE_LEVEL_GOOD;
 					printf( "Status: %x, Distance: %u, Energy: %lu\n", lightning_status, distance, energy );
 				}
 				else
-				{
+				{ 
 					printf("Lightning Data Read Failed\n");
 				}
 				
@@ -459,12 +464,10 @@ void app_main(void)
     
     // start wifi
 	wifi_init();
-	
-	//TaskHandle_t handle_BMP390_task = NULL;
-	//xTaskCreate(&BMP390_Task, "BMP390_task", 2048, NULL, 2, &handle_BMP390_task );
-	
+
 	// start sensor network
 	espnow_init();
+	
 
     while(1)
     {
