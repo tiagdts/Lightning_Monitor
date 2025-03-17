@@ -28,11 +28,12 @@
 #include "driver/gpio.h"
 
 // uint16_t sensor_location = WEST_SIDE;
-uint16_t sensor_location = KITCHEN;	
+uint16_t sensor_location = WEST_SIDE;	
 #if SOC_RTC_FAST_MEM_SUPPORTED
 static RTC_DATA_ATTR struct timeval sleep_enter_time;
 static RTC_DATA_ATTR uint8_t sensor_initialized;
 static RTC_DATA_ATTR uint8_t noise_status;
+static RTC_DATA_ATTR uint8_t noise_count;
 static uint8_t read_AS3935 = 0;
 #else
 static struct timeval sleep_enter_time;
@@ -103,6 +104,7 @@ static void deep_sleep_task(void *args)
     // Get AS3935 initialization status
     nvs_get_u8(nvs_handle, "sensor_status", (uint8_t *)&sensor_initialized);
     nvs_get_u8(nvs_handle, "noise_level", (uint8_t *)&noise_status);
+    nvs_get_u8(nvs_handle, "noise_events", (uint8_t *)&noise_count);
 //#endif
 
     struct timeval now;
@@ -207,154 +209,205 @@ static void deep_sleep_task(void *args)
 	 		}
 	 	}
 	}
-
-			
-		//////////////////// End Lightning Detector ////////////////////////////////
+	//////////////////// End Lightning Detector ////////////////////////////////
 		
-		///////////////////// I2C Devices /////////////////////////////////////////
-	if(i2c_bus_handle != NULL)
+	if(noise_status == NOISE_LEVEL_GOOD )
 	{
-		    printf( "Adding SHT45 device...\n" );
-		if( ( ret = SHT45_add_to_i2c_bus( i2c_bus_handle ) ) == ESP_OK )
+		// reset noise event count
+		noise_count = 0;
+		///////////////////////// I2C Devices //////////////////////////////////////
+		if(i2c_bus_handle != NULL)
 		{
-			printf("SHT45 added to i2c Bus\n");	
-			
-			if( (ret = get_SHT45_TMP_RH(&temperature, &humidity, &SHT45_tempC) ) == ESP_OK )
+			    printf( "Adding SHT45 device...\n" );
+			if( ( ret = SHT45_add_to_i2c_bus( i2c_bus_handle ) ) == ESP_OK )
 			{
-				printf("SHT45 temperature: %2.1f, humidity: %2.1f\n", temperature, humidity );
-				printf("SHT45_tempC: %2.2f\n", SHT45_tempC);
+				printf("SHT45 added to i2c Bus\n");	
+				
+				if( (ret = get_SHT45_TMP_RH(&temperature, &humidity, &SHT45_tempC) ) == ESP_OK )
+				{
+					printf("SHT45 temperature: %2.1f, humidity: %2.1f\n", temperature, humidity );
+					printf("SHT45_tempC: %2.2f\n", SHT45_tempC);
+				}
+				else printf("unable to get SHT45 data\n");
 			}
-			else printf("unable to get SHT45 data\n");
-		}
-		else printf("Failed to add SHT45 to i2c Bus\n\n");
-		
-		if(ret != ESP_OK )
-		{
-			temperature = -100;
-			humidity = -100;
-			SHT45_tempC = -100;
-		}
-	#ifdef BMP390_INSTALLED
-		printf( "Adding BMP390 device...\n" );
-		if( (ret = BMP390_add_to_i2c_bus(i2c_bus_handle, BMP390_0 ) ) == ESP_OK )
-		{
-			printf("BMP390 added to i2c Bus\n");
-			if( ( ret =  BMP390_initialize( ) ) == ESP_OK )
+			else printf("Failed to add SHT45 to i2c Bus\n\n");
+			
+			if(ret != ESP_OK )
 			{
-				printf("BMP390 initialized\n");
-				ret = BMP390_get_data_no_irq(10, &BMP_temperature, &BMP_pressure, &BMP_tempC );
-				printf("BMP_tempC: %2.2f\n", BMP_tempC);
+				temperature = -100;
+				humidity = -100;
+				SHT45_tempC = -100;
 			}
-			else printf("BMP390 initialization failed\n");
-		}
-		else printf("Failed to add BMP390 to i2c Bus\n");
-		
-		if(ret != ESP_OK )
-		{
-			BMP_temperature = -100;
-			BMP_pressure = -100;
-			BMP_tempC = -100;
-			
-		}
-	#endif	
-		printf( "Adding MAX17048 device...\n" );
-		if( MAX17048_add_to_i2c_bus( i2c_bus_handle ) == ESP_OK )
-		{
-			printf("MAX17048 added to i2c Bus\n");
-			
-			if( ( ret = MAX17048_read_SOC_data(&batt_soc) ) == ESP_OK )
+		#ifdef BMP390_INSTALLED
+			printf( "Adding BMP390 device...\n" );
+			if( (ret = BMP390_add_to_i2c_bus(i2c_bus_handle, BMP390_0 ) ) == ESP_OK )
 			{
-	
-				printf("Battery SOC: %2.1lf\n",  batt_soc );
+				printf("BMP390 added to i2c Bus\n");
+				if( ( ret =  BMP390_initialize( ) ) == ESP_OK )
+				{
+					printf("BMP390 initialized\n");
+					ret = BMP390_get_data_no_irq(10, &BMP_temperature, &BMP_pressure, &BMP_tempC );
+					printf("BMP_tempC: %2.2f\n", BMP_tempC);
+				}
+				else printf("BMP390 initialization failed\n");
+			}
+			else printf("Failed to add BMP390 to i2c Bus\n");
+			
+			if(ret != ESP_OK )
+			{
+				BMP_temperature = -100;
+				BMP_pressure = -100;
+				BMP_tempC = -100;
+				
+			}
+		#endif	
+			printf( "Adding MAX17048 device...\n" );
+			if( MAX17048_add_to_i2c_bus( i2c_bus_handle ) == ESP_OK )
+			{
+				printf("MAX17048 added to i2c Bus\n");
+				
+				if( ( ret = MAX17048_read_SOC_data(&batt_soc) ) == ESP_OK )
+				{
+		
+					printf("Battery SOC: %2.1lf\n",  batt_soc );
+				}
+				else
+				{
+					printf("unable to get MAX17048: SOC\n");
+					batt_soc = -100;
+				}
+				
+				if( ( ret = MAX17048_read_VCELL_data(&batt_volts) ) == ESP_OK )
+				{
+					printf("Battery Voltage: %1.3lf\n",  batt_volts );
+				}
+				else
+				{
+					printf("unable to get MAX17048: battery voltage\n");
+					batt_volts = -100;
+				}
+		
+				// use temperature from SHT45 or BMP390 to compensate MAX17048
+				if( SHT45_tempC != -100 )
+				{
+					MAX17048_set_Rcomp( SHT45_tempC );
+					printf("SHT45_tempC: %2.2f\n", SHT45_tempC);
+				}
+				else if( BMP_tempC != -100 )
+				{
+					MAX17048_set_Rcomp( BMP_tempC );
+					printf("BMP_tempC: %2.2f\n", BMP_tempC);
+				}
+		
 			}
 			else
 			{
-				printf("unable to get MAX17048: SOC\n");
+				printf("Failed to add MAX17048 to i2c Bus\n");
+				batt_volts = -100;
 				batt_soc = -100;
 			}
-			
-			if( ( ret = MAX17048_read_VCELL_data(&batt_volts) ) == ESP_OK )
-			{
-				printf("Battery Voltage: %1.3lf\n",  batt_volts );
-			}
-			else
-			{
-				printf("unable to get MAX17048: battery voltage\n");
-				batt_volts = -100;
-			}
-	
-			// use temperature from SHT45 or BMP390 to compensate MAX17048
-			if( SHT45_tempC != -100 )
-			{
-				MAX17048_set_Rcomp( SHT45_tempC );
-				printf("SHT45_tempC: %2.2f\n", SHT45_tempC);
-			}
-			else if( BMP_tempC != -100 )
-			{
-				MAX17048_set_Rcomp( BMP_tempC );
-				printf("BMP_tempC: %2.2f\n", BMP_tempC);
-			}
-	
 		}
+		else printf("I2C Bus not Available\n");
+		
+			///////////////////// End I2C Devices /////////////////////////////////////
+			    // get sample time
+		time(&timestamp);
+	    
+	    data.air_humidity = humidity;
+	    data.air_temperature = temperature;
+	    data.air_pressure = BMP_pressure;
+	    data.air_pressure_temp = BMP_temperature;
+	    data.batt_volts = batt_volts;
+	    data.batt_soc = batt_soc;
+	    data.location_id = sensor_location;
+	    data.time = timestamp;
+	    data.irq_status = lightning_status;
+	    data.distance = distance;
+	    data.energy = energy;
+	    
+	    // send data to espnow
+	    downloadLightning( &data );
+	    
+	    // start wifi
+		wifi_init();
+	
+		// start sensor network
+		espnow_init();
+		
+		
+			// wait here until data has been sent
+			// wait for the notification from espnow that the data has been sent
+			if( xSemaphoreTake(xSemaphore_DataReady, portMAX_DELAY ) == pdTRUE)
+			{
+				
+				
+			    printf("Entering deep sleep\n");
+			
+			    // get deep sleep enter time
+			    gettimeofday(&sleep_enter_time, NULL);
+			
+			//#if !SOC_RTC_FAST_MEM_SUPPORTED
+			    // record deep sleep enter time via nvs
+			    ESP_ERROR_CHECK(nvs_set_i32(nvs_handle, "slp_enter_sec", sleep_enter_time.tv_sec));
+			    ESP_ERROR_CHECK(nvs_set_i32(nvs_handle, "slp_enter_usec", sleep_enter_time.tv_usec));
+			    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "sensor_status", sensor_initialized) );
+			    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "noise_level", noise_status) );
+			    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "noise_events", noise_count) );
+			    ESP_ERROR_CHECK(nvs_commit(nvs_handle));
+			    nvs_close(nvs_handle);
+			//#endif
+			
+			    // enter deep sleep
+			    esp_deep_sleep_start();
+			}
+		} // noise level too high
 		else
 		{
-			printf("Failed to add MAX17048 to i2c Bus\n");
-			batt_volts = -100;
-			batt_soc = -100;
-		}
-	}
-	else printf("I2C Bus not Available\n");
-		///////////////////// End I2C Devices /////////////////////////////////////
-		
-		    // get sample time
-	time(&timestamp);
-    
-    data.air_humidity = humidity;
-    data.air_temperature = temperature;
-    data.air_pressure = BMP_pressure;
-    data.air_pressure_temp = BMP_temperature;
-    data.batt_volts = batt_volts;
-    data.batt_soc = batt_soc;
-    data.location_id = sensor_location;
-    data.time = timestamp;
-    data.irq_status = lightning_status;
-    data.distance = distance;
-    data.energy = energy;
-    
-    // send data to espnow
-    downloadLightning( &data );
-    
-    // start wifi
-	wifi_init();
+			int i;
+			
+			noise_count++;
+			printf("Noise events: %u\n", noise_count);
+				
+			// wait for 10 seconds then goto sleep - waiting for noise to settle
+			for(i=0; i<10; i++)
+			{
+				printf("Noise: Waiting %d seconds to sleep...\n", 10-i);
+				vTaskDelay(1000 / portTICK_PERIOD_MS);
+			}
+			
+			if(noise_count>10)
+			{
+				// send out notice that noise still present after 10 consecutive noise events
+				noise_count = 0;
+				memset( &data, 0, sizeof( data ) );
+				time(&timestamp);
+				data.time = timestamp;
+				data.location_id = sensor_location;
+				data.irq_status = lightning_status;
+				
+				// send data to espnow
+			    downloadLightning( &data );
+			    
+			    // start wifi
+				wifi_init();
+			
+				// start sensor network
+				espnow_init();
+				
+							// wait here until data has been sent
+				// wait for the notification from espnow that the data has been sent
+				if( xSemaphoreTake(xSemaphore_DataReady, portMAX_DELAY ) == pdTRUE)
+				{
+					printf("espnow data saved after 10 noise events\n");
+				}
 
-	// start sensor network
-	espnow_init();
-	
-	
-		// wait here until data has been sent
-		// wait for the notification from espnow that the data has been sent
-		if( xSemaphoreTake(xSemaphore_DataReady, portMAX_DELAY ) == pdTRUE)
-		{
-			
-			
-		    printf("Entering deep sleep\n");
-		
-		    // get deep sleep enter time
-		    gettimeofday(&sleep_enter_time, NULL);
-		
-		//#if !SOC_RTC_FAST_MEM_SUPPORTED
-		    // record deep sleep enter time via nvs
-		    ESP_ERROR_CHECK(nvs_set_i32(nvs_handle, "slp_enter_sec", sleep_enter_time.tv_sec));
-		    ESP_ERROR_CHECK(nvs_set_i32(nvs_handle, "slp_enter_usec", sleep_enter_time.tv_usec));
-		    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "sensor_status", sensor_initialized) );
-		    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "noise_level", noise_status) );
-		    ESP_ERROR_CHECK(nvs_commit(nvs_handle));
-		    nvs_close(nvs_handle);
-		//#endif
-		
-		    // enter deep sleep
-		    esp_deep_sleep_start();
+			}
+			ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "noise_events", noise_count) );
+			// enter deep sleep
+			printf("Entering deep sleep after noise too high detection\n");
+			esp_deep_sleep_start();
 		}
+
 	}
 
 static void deep_sleep_register_rtc_timer_wakeup(void)
@@ -407,14 +460,6 @@ void app_main(void)
 
 /////////////////////////////////////////////////////////////////////////
     
-
-	
-	
-	
-
-
-	
-
     while(1)
     {
 
