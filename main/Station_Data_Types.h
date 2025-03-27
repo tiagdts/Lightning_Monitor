@@ -45,8 +45,12 @@
 #define RAIN_DATA					27
 #define WEATHER_CAL_DATA			28
 #define POND_DATA					29
-#define DUCT_DATA					30
-#define LIGHTNING_DATA				31
+#define PH_CAL_DATA					30
+#define RESERVED_DATA				31
+#define BUTTON_DATA					32
+#define DUCT_DATA					33
+#define LIGHTNING_DATA				34
+
 
 	/* Locations inside */
 #define LIVING_ROOM					1
@@ -71,6 +75,14 @@
 #define GARAGE						5 + OUTSIDE
 #define HVAC_OUTSIDE_UNIT			6 + OUTSIDE
 #define ROOF						7 + OUTSIDE
+#define POND						8 + OUTSIDE
+
+// BUTTON types
+#define BUTTON_TYPE_NULL	0
+#define BUTTON_TYPE_PH_CAL	1
+
+// BUTTON function
+typedef enum  { IDEL_BTN, START_BTN, NEXT_BTN, BACK_BTN, END_BTN } button_data_t;
 
 typedef struct
 {
@@ -185,7 +197,10 @@ typedef struct
 {
 	float air_temperature;
 	float water_temperature;
+	int hour;
 	uint16_t light_level;
+	uint32_t hourly_light_accum;
+	uint32_t daily_light_accum;
 	float turbidity;
 	float fluoresence;
 	float pH;
@@ -194,6 +209,34 @@ typedef struct
 
 } pondData_t;
 
+typedef struct
+{
+	uint16_t state;
+	float low_standard;
+	float mid_standard;
+	float high_standard;
+	float pH_volts_low;
+	float pH_volts_mid;
+	float pH_volts_high;
+	float coeff_exp;
+	float coeff_slope;
+	float coeff_intercept;
+	float temp;
+	float r;
+	bool saved;
+	time_t time;
+} pHCalData_t;
+
+typedef struct
+{
+	uint16_t location_id;
+	uint32_t button_type;
+	int16_t button_data;
+	int16_t state;
+	int16_t last_state;
+	int16_t next_state;
+	time_t time;
+} buttonData_t;
 
 typedef struct
 {
@@ -237,8 +280,10 @@ typedef struct
 #define RAIN_DATA_RDY				0x00000100
 #define WEATHER_CAL_DATA_RDY		0x00000200
 #define POND_DATA_RDY				0x00000400
-#define DUCT_DATA_RDY				0x00000800
-#define LIGHTNING_DATA_RDY			0x00001000
+#define PH_CAL_DATA_RDY				0x00000800
+#define BUTTON_DATA_RDY				0x00001000
+#define DUCT_DATA_RDY				0x00002000
+#define LIGHTNING_DATA_RDY			0x00004000
 
 
 

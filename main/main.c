@@ -29,15 +29,15 @@
 
 // uint16_t sensor_location = WEST_SIDE;
 uint16_t sensor_location = WEST_SIDE;	
-#if SOC_RTC_FAST_MEM_SUPPORTED
+//#if SOC_RTC_FAST_MEM_SUPPORTED
 static RTC_DATA_ATTR struct timeval sleep_enter_time;
 static RTC_DATA_ATTR uint8_t sensor_initialized;
 static RTC_DATA_ATTR uint8_t noise_status;
 static RTC_DATA_ATTR uint8_t noise_count;
 static uint8_t read_AS3935 = 0;
-#else
-static struct timeval sleep_enter_time;
-#endif
+//#else
+//static struct timeval sleep_enter_time;
+//#endif
 
 // semaphore used to signal data ready
 SemaphoreHandle_t xSemaphore_DataReady = NULL;

@@ -1497,8 +1497,6 @@ static void espnow_task(void *pvParameter)
                
 				readyToSleep = true;
 
-               
-                
                // wait here
 				while(readyToSleep)
 				{
