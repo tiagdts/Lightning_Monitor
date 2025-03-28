@@ -32,7 +32,7 @@
 uint16_t sensor_location = WEST_SIDE;	
 //#if SOC_RTC_FAST_MEM_SUPPORTED
 static RTC_DATA_ATTR struct timeval sleep_enter_time;
-static RTC_DATA_ATTR uint64_t t_system_time_last_update_us;
+static RTC_DATA_ATTR uint64_t t_system_time_last_update_us = 0;
 static RTC_DATA_ATTR uint8_t sensor_initialized;
 static RTC_DATA_ATTR uint8_t noise_status;
 static RTC_DATA_ATTR uint8_t noise_count;
@@ -52,8 +52,8 @@ static i2c_master_bus_handle_t i2c_bus_handle = NULL;
 bool 
 spi_available = false;
 
-// #define TIME_UPDATE_INTERVAL 		3600000000	// us (1 HOUR)
-#define TIME_UPDATE_INTERVAL 		60000000	// us (1 minute) use for testing
+#define TIME_UPDATE_INTERVAL 		3600000000	// us (1 HOUR)
+// #define TIME_UPDATE_INTERVAL 		300000000	// us (5 minutes) use for testing
 #define WAIT_FOR_TIME_UPDATE		30000		// ms waiting for system time update
 
 #define BMP390_INSTALLED
@@ -114,7 +114,7 @@ static void deep_sleep_task(void *args)
     nvs_get_i32(nvs_handle, "slp_enter_usec", (int32_t *)&sleep_enter_time.tv_usec);
     
     // get system time update
-    nvs_get_u64(nvs_handle, "update_usec",(uint64_t *) t_system_time_last_update_us );
+    nvs_get_u64(nvs_handle, "update_usec",(uint64_t *)&t_system_time_last_update_us );
     
     // Get AS3935 initialization status
     nvs_get_u8(nvs_handle, "sensor_status", (uint8_t *)&sensor_initialized);
@@ -126,8 +126,11 @@ static void deep_sleep_task(void *args)
     gettimeofday(&now, NULL);
     int sleep_time_ms = (now.tv_sec - sleep_enter_time.tv_sec) * 1000 + (now.tv_usec - sleep_enter_time.tv_usec) / 1000;
     
+    printf("Last update(us): %llu\n", t_system_time_last_update_us);
     // increment last system update elapse time
     t_system_time_last_update_us += (sleep_time_ms * 1000);
+    
+     printf("Last update + sleep time(us): %llu\n", t_system_time_last_update_us);
     
     // initiate a system time update if needed
     if( t_system_time_last_update_us > TIME_UPDATE_INTERVAL )
@@ -362,21 +365,27 @@ static void deep_sleep_task(void *args)
 							
 			// wait here until data has been sent
 			// wait for the notification from espnow that the data has been sent
+			printf("Waiting for Lightning data to be sent\n");
 			if( xSemaphoreTake(xSemaphore_DataReady, portMAX_DELAY ) == pdTRUE)
 			{
+				printf("Lightning data sent\n");	
 				if( waitForSystemTimeUpdate )
 				{
-					if( xSemaphoreTake(xSemaphore_DataReady, WAIT_FOR_TIME_UPDATE/ portTICK_PERIOD_MS  ) == pdTRUE)
+					printf("Waiting for System Time updated\n");
+					waitForSystemTimeUpdate = false;
+					if( xSemaphoreTake(xSemaphore_SystemTimeSet, WAIT_FOR_TIME_UPDATE/ portTICK_PERIOD_MS  ) == pdTRUE)
 					{
 						// reset update time
 						t_system_time_last_update_us = 0;
-						printf("Sytem Time updated\n");
+						printf("System Time updated\n");
 					}
 					else
 					{
 						printf("Sytem Time update failed\n");
+						t_system_time_last_update_us = TIME_UPDATE_INTERVAL;
 					}
 				}
+				else printf("No System Time update needed\n");
 					
 			    printf("Entering deep sleep\n");
 			
@@ -457,7 +466,10 @@ static void deep_sleep_register_rtc_timer_wakeup(void)
 
 void app_main(void)
 {
-	esp_err_t err = nvs_flash_init();
+	esp_err_t err;
+	
+	 ESP_ERROR_CHECK( err = nvs_flash_init() );
+	
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         // NVS partition was truncated and needs to be erased
         // Retry nvs_flash_init
