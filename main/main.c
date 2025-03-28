@@ -8,6 +8,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include "Station_Data_Types.h"
+#include "esp_attr.h"
 #include "sdkconfig.h"
 #include "soc/soc_caps.h"
 #include "freertos/FreeRTOS.h"
@@ -31,9 +32,11 @@
 uint16_t sensor_location = WEST_SIDE;	
 //#if SOC_RTC_FAST_MEM_SUPPORTED
 static RTC_DATA_ATTR struct timeval sleep_enter_time;
+static RTC_DATA_ATTR uint64_t t_system_time_last_update_us;
 static RTC_DATA_ATTR uint8_t sensor_initialized;
 static RTC_DATA_ATTR uint8_t noise_status;
 static RTC_DATA_ATTR uint8_t noise_count;
+
 static uint8_t read_AS3935 = 0;
 //#else
 //static struct timeval sleep_enter_time;
@@ -41,10 +44,17 @@ static uint8_t read_AS3935 = 0;
 
 // semaphore used to signal data ready
 SemaphoreHandle_t xSemaphore_DataReady = NULL;
+
+// semaphore used to signal system time set
+SemaphoreHandle_t xSemaphore_SystemTimeSet = NULL;
+
 static i2c_master_bus_handle_t i2c_bus_handle = NULL;
 bool 
 spi_available = false;
 
+// #define TIME_UPDATE_INTERVAL 		3600000000	// us (1 HOUR)
+#define TIME_UPDATE_INTERVAL 		60000000	// us (1 minute) use for testing
+#define WAIT_FOR_TIME_UPDATE		30000		// ms waiting for system time update
 
 #define BMP390_INSTALLED
 #define AS3935_INITIALIZED	0x01
@@ -87,6 +97,7 @@ static void deep_sleep_task(void *args)
 	uint8_t distance = 0;
 	uint32_t energy = 0;
 	esp_err_t ret;
+	bool waitForSystemTimeUpdate = false;
      
      esp_err_t err;
 
@@ -101,6 +112,10 @@ static void deep_sleep_task(void *args)
     // Get deep sleep enter time
     nvs_get_i32(nvs_handle, "slp_enter_sec", (int32_t *)&sleep_enter_time.tv_sec);
     nvs_get_i32(nvs_handle, "slp_enter_usec", (int32_t *)&sleep_enter_time.tv_usec);
+    
+    // get system time update
+    nvs_get_u64(nvs_handle, "update_usec",(uint64_t *) t_system_time_last_update_us );
+    
     // Get AS3935 initialization status
     nvs_get_u8(nvs_handle, "sensor_status", (uint8_t *)&sensor_initialized);
     nvs_get_u8(nvs_handle, "noise_level", (uint8_t *)&noise_status);
@@ -110,6 +125,16 @@ static void deep_sleep_task(void *args)
     struct timeval now;
     gettimeofday(&now, NULL);
     int sleep_time_ms = (now.tv_sec - sleep_enter_time.tv_sec) * 1000 + (now.tv_usec - sleep_enter_time.tv_usec) / 1000;
+    
+    // increment last system update elapse time
+    t_system_time_last_update_us += (sleep_time_ms * 1000);
+    
+    // initiate a system time update if needed
+    if( t_system_time_last_update_us > TIME_UPDATE_INTERVAL )
+    {
+		clrSystemTimeSet();
+		waitForSystemTimeUpdate = true;
+	}
 
     switch (esp_sleep_get_wakeup_cause()) {
         case ESP_SLEEP_WAKEUP_TIMER: {
@@ -333,14 +358,26 @@ static void deep_sleep_task(void *args)
 	
 		// start sensor network
 		espnow_init();
-		
-		
+							
+							
 			// wait here until data has been sent
 			// wait for the notification from espnow that the data has been sent
 			if( xSemaphoreTake(xSemaphore_DataReady, portMAX_DELAY ) == pdTRUE)
 			{
-				
-				
+				if( waitForSystemTimeUpdate )
+				{
+					if( xSemaphoreTake(xSemaphore_DataReady, WAIT_FOR_TIME_UPDATE/ portTICK_PERIOD_MS  ) == pdTRUE)
+					{
+						// reset update time
+						t_system_time_last_update_us = 0;
+						printf("Sytem Time updated\n");
+					}
+					else
+					{
+						printf("Sytem Time update failed\n");
+					}
+				}
+					
 			    printf("Entering deep sleep\n");
 			
 			    // get deep sleep enter time
@@ -350,6 +387,7 @@ static void deep_sleep_task(void *args)
 			    // record deep sleep enter time via nvs
 			    ESP_ERROR_CHECK(nvs_set_i32(nvs_handle, "slp_enter_sec", sleep_enter_time.tv_sec));
 			    ESP_ERROR_CHECK(nvs_set_i32(nvs_handle, "slp_enter_usec", sleep_enter_time.tv_usec));
+			    ESP_ERROR_CHECK(nvs_set_u64(nvs_handle, "update_usec",t_system_time_last_update_us ));
 			    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "sensor_status", sensor_initialized) );
 			    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "noise_level", noise_status) );
 			    ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "noise_events", noise_count) );
@@ -445,8 +483,11 @@ void app_main(void)
 	else printf("SPI Bus Initalization Failed \n");
 	
 	
-    // create binary semaphores for Interrupt Service routine 
+    // create binary semaphore for signaling espnow data sent 
 	xSemaphore_DataReady = xSemaphoreCreateBinary();
+
+	// create binary semaphore signaling for system time set
+	xSemaphore_SystemTimeSet = xSemaphoreCreateBinary();
 	
 	/* Enable wakeup from deep sleep by rtc timer */
     deep_sleep_register_rtc_timer_wakeup();

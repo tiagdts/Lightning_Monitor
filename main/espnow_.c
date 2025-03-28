@@ -59,6 +59,7 @@
 
 //static uint8_t send_count = 0;
 static bool readyToSleep = false;
+static bool system_time_set = true;
 
 static uint32_t dataReadyStatus = 0;
 static uint32_t dataNewStatus = 0;
@@ -68,6 +69,7 @@ static const char *TAG = "espnow";
 static QueueHandle_t s_espnow_queue;
 
 extern SemaphoreHandle_t xSemaphore_DataReady;
+extern SemaphoreHandle_t xSemaphore_SystemTimeSet;
 
 // semaphores used between non-interrupt tasks
 SemaphoreHandle_t xSemaphore_data_access = NULL;
@@ -171,6 +173,16 @@ bool getReadyToSleep(void)
 void clrReadyToSleep(void)
 {
 	readyToSleep = false;
+}
+
+bool getSystemTimeSet(void)
+{
+	return system_time_set;
+}
+
+void clrSystemTimeSet(void)
+{
+	system_time_set = false;
 }
 
 void clearDataReadyStatus( uint32_t clearbits)
@@ -1469,6 +1481,7 @@ static void espnow_task(void *pvParameter)
     uint8_t payload_pt[ESPNOW_SEND_LEN];
 
     int ret;
+    systemTimeData_t systemTime;
 
     //vTaskDelay(10 / portTICK_PERIOD_MS);
     ESP_LOGI(TAG, "Start sending broadcast data");
@@ -1483,20 +1496,20 @@ static void espnow_task(void *pvParameter)
         vTaskDelete(NULL);
     }
 #endif
-    while (xQueueReceive(s_espnow_queue, &evt, portMAX_DELAY) == pdTRUE) {
+   	while (xQueueReceive(s_espnow_queue, &evt, portMAX_DELAY) == pdTRUE) {
         switch (evt.id) {
             case ESPNOW_SEND_CB:
             {
                 espnow_event_send_cb_t *send_cb = &evt.info.send_cb;
                 //is_broadcast = IS_BROADCAST_ADDR(send_cb->mac_addr);
 
-
-
-                // see if all the data has been sent before sleeping
-               // readyToSleep = check_sleep_status();
-               
+                // the data has been sent, ready to sleeping
 				readyToSleep = true;
-
+				// let sleep task know data collected and sent
+                xSemaphoreGive( xSemaphore_DataReady );
+				printf("Data sent: espnow Ready to Sleep\n");
+				
+#ifdef OLD_SEND
                // wait here
 				while(readyToSleep)
 				{
@@ -1533,7 +1546,9 @@ static void espnow_task(void *pvParameter)
                     espnow_deinit(send_param);
                     vTaskDelete(NULL);
                 }
+ #endif                 
                 break;
+              
             }
             case ESPNOW_RECV_CB:
             {
@@ -1632,10 +1647,21 @@ static void espnow_task(void *pvParameter)
 							{
 								downloadSystemTime( (systemTimeData_t *)(&payload_pt) );
 								dataReadyStatus = dataReadyStatus | SYSTEM_TIME_DATA_RDY;
-
 								xSemaphoreGive( xSemaphore_data_access );
+								printSystemTimeData();						
+								if( !system_time_set )
+								{							
+									// get time data
+									if( updateSystemTime( &systemTime ) == DATA_READ )
+									{
+										settimeofday(&systemTime.t, NULL);
+										printf("System Time Updated %lld\n",systemTime.t.tv_sec);
+										system_time_set = true;
+										xSemaphoreGive( xSemaphore_SystemTimeSet );
+									}
+								}							
 							}
-							printSystemTimeData();
+
 						break;
 
 					case RAIN_DATA :

@@ -133,6 +133,10 @@ void downloadLightning( lightningData_t *data );
 
 bool getReadyToSleep(void);
 void clrReadyToSleep(void);
+
+bool getSystemTimeSet(void);
+void clrSystemTimeSet(void);
+
 void clrDataTypesToSendAll(void);
 void clrDataTypesToSendIndividual(uint32_t i);
 
