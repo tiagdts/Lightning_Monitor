@@ -16,6 +16,7 @@
 #include "esp_sleep.h"
 #include "esp_log.h"
 #include "driver/rtc_io.h"
+//#include "esp32/rom/uart.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 
@@ -340,6 +341,13 @@ static void deep_sleep_task(void *args)
 			///////////////////// End I2C Devices /////////////////////////////////////
 			    // get sample time
 		time(&timestamp);
+		
+		// see if time is current
+		if( timestamp < 1743269000 ) 
+		{
+			waitForSystemTimeUpdate = true;
+			clrSystemTimeSet( );
+		}
 	    
 	    data.air_humidity = humidity;
 	    data.air_temperature = temperature;
@@ -403,6 +411,10 @@ static void deep_sleep_task(void *args)
 			    ESP_ERROR_CHECK(nvs_commit(nvs_handle));
 			    nvs_close(nvs_handle);
 			//#endif
+			
+				/* To make sure the complete line is printed before entering sleep mode,
+				 * need to wait until UART TX FIFO is empty: */
+				// uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
 			
 			    // enter deep sleep
 			    esp_deep_sleep_start();
