@@ -910,8 +910,10 @@ void downloadDuct( ductData_t *data )
 //////////////////
 static void printLightningData(void)
 {
-	printf("Lightning Data: %lld, %d, %2.2f, %3.1f, %2.2f, %3.1f, %1.3lf, %2.1lf, x%x, %u, %lu\n\r", loc_lightningData.time, loc_lightningData.location_id, loc_lightningData.air_temperature,
-			loc_lightningData.air_humidity, loc_lightningData.air_pressure, loc_lightningData.air_pressure_temp, loc_lightningData.batt_volts, loc_lightningData.batt_soc,
+	printf("Lightning Data: %lld, %d, %2.2f, %3.1f, %2.2f, %3.1f, %1.3lf, %2.1lf, %4.0f, x%x, %u, %lu\n\r", loc_lightningData.time,
+			loc_lightningData.location_id, loc_lightningData.air_temperature,
+			loc_lightningData.air_humidity, loc_lightningData.air_pressure, loc_lightningData.air_pressure_temp,
+			loc_lightningData.batt_volts, loc_lightningData.batt_soc, loc_lightningData.batt_charge,
 			loc_lightningData.irq_status, loc_lightningData.distance, loc_lightningData.energy );
 }
 
@@ -927,6 +929,7 @@ int16_t updateLightning( lightningData_t *data )
 		data->time = loc_lightningData.time;
 		data->batt_volts = loc_lightningData.batt_volts;
 		data->batt_soc = loc_lightningData.batt_soc;
+		data->batt_charge = loc_lightningData.batt_charge;
 		data->irq_status = loc_lightningData.irq_status;
 		data->distance = loc_lightningData.distance;
 		data->energy = loc_lightningData.energy;
@@ -952,6 +955,7 @@ int16_t updateLightningloc( lightningData_t *data )
 		loc_lightningData.location_id = data->location_id;
 		loc_lightningData.time = data->time;
 		loc_lightningData.batt_volts = data->batt_volts;
+		loc_lightningData.batt_charge = data->batt_charge;
 		loc_lightningData.batt_soc = data->batt_soc;
 		loc_lightningData.irq_status = data->irq_status;
 		loc_lightningData.distance = data->distance;
@@ -979,6 +983,7 @@ void downloadLightning( lightningData_t *data )
 		loc_lightningData.time = data->time;
 		loc_lightningData.batt_volts = data->batt_volts;
 		loc_lightningData.batt_soc = data->batt_soc;
+		loc_lightningData.batt_charge = data->batt_charge;
 		loc_lightningData.irq_status = data->irq_status;
 		loc_lightningData.distance = data->distance;
 		loc_lightningData.energy = data->energy;

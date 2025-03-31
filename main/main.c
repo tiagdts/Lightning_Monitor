@@ -16,7 +16,7 @@
 #include "esp_sleep.h"
 #include "esp_log.h"
 #include "driver/rtc_io.h"
-//#include "esp32/rom/uart.h"
+// #include "driver/uart.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 
@@ -26,6 +26,7 @@
 #include "HDC3020.h"
 #include "AS3935.h"
 #include "espnow_.h"
+#include "adc_.h"
 
 #include "driver/gpio.h"
 
@@ -182,6 +183,11 @@ static void deep_sleep_task(void *args)
 	lightning_status = 0;
 	distance = 0;
 	energy = 0;
+	
+	/////////////// init ADC /////////////
+	if( init_adc( ) == ESP_OK ) printf("adc initialized\n");
+		else  printf("adc initialization failed\n"); 
+	
 	if( spi_available )
 	{
 		if( add_AS3935_to_SPI_bus( ) == ESP_OK )
@@ -338,8 +344,25 @@ static void deep_sleep_task(void *args)
 		}
 		else printf("I2C Bus not Available\n");
 		
-			///////////////////// End I2C Devices /////////////////////////////////////
-			    // get sample time
+		///////////////// End I2C Devices ///////////////////////////
+		
+		////////////// read battery charge current //////////////////
+		int16_t raw_data = 0;
+		int16_t mv_data = 0;	
+		if( read_adc( &raw_data, &mv_data ) == ESP_OK)
+		{
+			data.batt_charge = mV_to_mA(mv_data);
+			printf( "Battery Charge Current read: %dmv, %4.0fmA\n", mv_data, data.batt_charge );
+			data.batt_charge = mV_to_mA(mv_data);
+		}
+		else
+		{
+			printf("Battery Charge Current not read\n");
+			data.batt_charge = -100.0;
+		}
+		
+		
+		//////////////// get sample time ///////////////////
 		time(&timestamp);
 		
 		// see if time is current
@@ -414,7 +437,7 @@ static void deep_sleep_task(void *args)
 			
 				/* To make sure the complete line is printed before entering sleep mode,
 				 * need to wait until UART TX FIFO is empty: */
-				// uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
+				 //uart_tx_wait_done(CONFIG_ESP_CONSOLE_UART_NUM, 100);
 			
 			    // enter deep sleep
 			    esp_deep_sleep_start();

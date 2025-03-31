@@ -6,4 +6,5 @@ idf_component_register(SRCS "main.c"
 							"SHT45.c"
 							"MAX17048.c"
 							"AS3935.c"
+							"adc_.c"
                     INCLUDE_DIRS ".")
