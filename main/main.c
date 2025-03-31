@@ -30,8 +30,8 @@
 
 #include "driver/gpio.h"
 
-// uint16_t sensor_location = WEST_SIDE;
-uint16_t sensor_location = WEST_SIDE;	
+uint16_t sensor_location = KITCHEN;
+//uint16_t sensor_location = WEST_SIDE;	
 //#if SOC_RTC_FAST_MEM_SUPPORTED
 static RTC_DATA_ATTR struct timeval sleep_enter_time;
 static RTC_DATA_ATTR uint64_t t_system_time_last_update_us = 0;
@@ -248,6 +248,7 @@ static void deep_sleep_task(void *args)
 		
 	if(noise_status == NOISE_LEVEL_GOOD )
 	{
+		
 		// reset noise event count
 		noise_count = 0;
 		///////////////////////// I2C Devices //////////////////////////////////////
@@ -347,13 +348,12 @@ static void deep_sleep_task(void *args)
 		///////////////// End I2C Devices ///////////////////////////
 		
 		////////////// read battery charge current //////////////////
-		int16_t raw_data = 0;
-		int16_t mv_data = 0;	
-		if( read_adc( &raw_data, &mv_data ) == ESP_OK)
+		// int16_t raw_data = 0;
+		int mv_data = 0;	
+		if( read_adc( &mv_data ) == ESP_OK)
 		{
 			data.batt_charge = mV_to_mA(mv_data);
-			printf( "Battery Charge Current read: %dmv, %4.0fmA\n", mv_data, data.batt_charge );
-			data.batt_charge = mV_to_mA(mv_data);
+			printf( "Battery Charge Current read: %4.0fmA\n", data.batt_charge );
 		}
 		else
 		{

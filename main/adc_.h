@@ -19,9 +19,11 @@
 #define EXAMPLE_ADC1_CHAN0          ADC_CHANNEL_0
 #define EXAMPLE_ADC_ATTEN           ADC_ATTEN_DB_12
 
+#define ARRAY_SIZE					10
+
 esp_err_t init_adc( void );
 void adc_calibration_deinit(adc_cali_handle_t handle);
-esp_err_t  read_adc( int16_t *adc_raw_data, int16_t *adc_volt );
+esp_err_t  read_adc( int *adc_volt );
 float mV_to_mA(int16_t mv);
-
+int calc_overall_mean( void );
 #endif /* MAIN_ADC__H_ */
