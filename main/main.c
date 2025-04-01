@@ -231,7 +231,7 @@ static void deep_sleep_task(void *args)
 						{
 							printf("AS3935 Not Calibrated.\n");
 						}
-	#define DISABLE_DISTURBER
+	//#define DISABLE_DISTURBER
 	#ifdef DISABLE_DISTURBER			 	
 						// disable Disturber Interrupt
 						if( set_AS3935_reg( REG_X03, MASK_DIST_BIT ) == ESP_OK )
