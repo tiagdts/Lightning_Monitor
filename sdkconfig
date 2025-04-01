@@ -456,7 +456,7 @@ CONFIG_EXAMPLE_GPIO_WAKEUP=y
 #
 # GPIO wakeup configuration
 #
-CONFIG_EXAMPLE_GPIO_WAKEUP_PIN=0
+CONFIG_EXAMPLE_GPIO_WAKEUP_PIN=1
 CONFIG_EXAMPLE_GPIO_WAKEUP_HIGH_LEVEL=y
 # end of GPIO wakeup configuration
 # end of Example Configuration
