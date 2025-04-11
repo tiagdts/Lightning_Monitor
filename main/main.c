@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #include "Station_Data_Types.h"
 #include "esp_attr.h"
+#include "hal/gpio_types.h"
 #include "sdkconfig.h"
 #include "soc/soc_caps.h"
 #include "freertos/FreeRTOS.h"
@@ -16,6 +17,7 @@
 #include "esp_sleep.h"
 #include "esp_log.h"
 #include "driver/rtc_io.h"
+#include "driver/gpio.h"
 // #include "driver/uart.h"
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -28,10 +30,8 @@
 #include "espnow_.h"
 #include "adc_.h"
 
-#include "driver/gpio.h"
-
-uint16_t sensor_location = KITCHEN;
-//uint16_t sensor_location = WEST_SIDE;	
+//uint16_t sensor_location = KITCHEN;
+uint16_t sensor_location = WEST_SIDE;	
 //#if SOC_RTC_FAST_MEM_SUPPORTED
 static RTC_DATA_ATTR struct timeval sleep_enter_time;
 static RTC_DATA_ATTR uint64_t t_system_time_last_update_us = 0;
@@ -100,6 +100,7 @@ static void deep_sleep_task(void *args)
 	uint32_t energy = 0;
 	esp_err_t ret;
 	bool waitForSystemTimeUpdate = false;
+	bool enable_charger = false;
      
      esp_err_t err;
 
@@ -183,16 +184,30 @@ static void deep_sleep_task(void *args)
 	lightning_status = 0;
 	distance = 0;
 	energy = 0;
-	
+
 	/////////////// init ADC /////////////
-	if( init_adc( ) == ESP_OK ) printf("adc initialized\n");
-		else  printf("adc initialization failed\n"); 
-	
+//	if( init_adc( ) == ESP_OK ) printf("adc initialized\n");
+//
+//		else  printf("adc initialization failed\n"); 
+
 	if( spi_available )
 	{
 		if( add_AS3935_to_SPI_bus( ) == ESP_OK )
 		{
 			printf("AS3935 added to SPI Bus\n");
+/*			
+			if( direct_command_AS3935(PRESET_DEFAULT) == ESP_OK )
+			{
+				printf("AS3935 preset sucessful\n");
+				vTaskDelay(100 / portTICK_PERIOD_MS);
+			}else printf("AS3935 preset failed\n");
+			
+			// disable AS3935
+			if( mod_AS3935_reg( REG_X00, PDW_BIT, DISABLE_AS3935  ) == ESP_OK )
+				printf("Disabled AS3935\n");
+			else printf("Disabling AS3935 failed\n");
+			
+*/
 			if( read_AS3935 )
 			{
 				// read lightning data
@@ -231,13 +246,19 @@ static void deep_sleep_task(void *args)
 						{
 							printf("AS3935 Not Calibrated.\n");
 						}
-	//#define DISABLE_DISTURBER
+	#define DISABLE_DISTURBER
 	#ifdef DISABLE_DISTURBER			 	
 						// disable Disturber Interrupt
 						if( set_AS3935_reg( REG_X03, MASK_DIST_BIT ) == ESP_OK )
 							printf("Disturber interrupt diabled\n");
 						else printf("Disable Disturber interrupt failed\n");
 	#endif
+	/*
+						// disable AS3935
+						if( mod_AS3935_reg( REG_X00, PDW_BIT, DISABLE_AS3935  ) == ESP_OK )
+							printf("Disabled AS3935\n");
+						else printf("Disabling AS3935 failed\n");
+	*/
 					}
 					else printf("AS3935 previously calibrated\n");
 				}
@@ -350,6 +371,7 @@ static void deep_sleep_task(void *args)
 		////////////// read battery charge current //////////////////
 		// int16_t raw_data = 0;
 		int mv_data = 0;	
+/*
 		if( read_adc( &mv_data ) == ESP_OK)
 		{
 			data.batt_charge = mV_to_mA(mv_data);
@@ -360,8 +382,8 @@ static void deep_sleep_task(void *args)
 			printf("Battery Charge Current not read\n");
 			data.batt_charge = -100.0;
 		}
-		
-		
+*/
+//		data.batt_charge = 0;
 		//////////////// get sample time ///////////////////
 		time(&timestamp);
 		
@@ -438,7 +460,26 @@ static void deep_sleep_task(void *args)
 				/* To make sure the complete line is printed before entering sleep mode,
 				 * need to wait until UART TX FIFO is empty: */
 				 //uart_tx_wait_done(CONFIG_ESP_CONSOLE_UART_NUM, 100);
-			
+	/*			 
+			gpio_sleep_set_direction(5, GPIO_MODE_OUTPUT );
+			// set charger enable pin for sleep mode
+			if( enable_charger )
+			{
+				gpio_sleep_set_pull_mode( 5, GPIO_PULLDOWN_ONLY );
+				gpio_set_level(5,0);
+				gpio_deep_sleep_hold_en();
+			}
+			else
+			{
+				gpio_sleep_set_pull_mode( 5, GPIO_PULLUP_ONLY );
+				gpio_set_level(5,1);
+				gpio_deep_sleep_hold_en();
+			}
+			printf("Waiting...\n");
+			vTaskDelay(5000 / portTICK_PERIOD_MS);
+			printf("Done Waiting\n");
+	*/	
+				printf("Entering normal deep sleep\n");	
 			    // enter deep sleep
 			    esp_deep_sleep_start();
 			}
@@ -485,6 +526,26 @@ static void deep_sleep_task(void *args)
 
 			}
 			ESP_ERROR_CHECK( nvs_set_u8(nvs_handle, "noise_events", noise_count) );
+/*		
+			gpio_sleep_set_direction(5, GPIO_MODE_OUTPUT );
+			// set charger enable pin for sleep mode
+			if( enable_charger )
+			{
+				gpio_sleep_set_pull_mode( 5, GPIO_PULLDOWN_ONLY );
+				gpio_set_level(5,1);
+				gpio_deep_sleep_hold_en();
+			}
+			else
+			{
+				gpio_sleep_set_pull_mode( 5, GPIO_PULLUP_ONLY );
+				gpio_set_level(5,0);
+				gpio_deep_sleep_hold_en();
+			}
+			printf("Waiting...\n");
+			vTaskDelay(5000 / portTICK_PERIOD_MS);
+			printf("Done Waiting\n");
+			*/
+			
 			// enter deep sleep
 			printf("Entering deep sleep after noise too high detection\n");
 			esp_deep_sleep_start();
@@ -541,7 +602,7 @@ void app_main(void)
 	
 	#if CONFIG_EXAMPLE_GPIO_WAKEUP
 	/* Enable wakeup from deep sleep by gpio */
-	example_deep_sleep_register_gpio_wakeup();
+	//example_deep_sleep_register_gpio_wakeup();
 	#endif
 	
 	xTaskCreate(deep_sleep_task, "deep_sleep_task", 4096, NULL, 6, NULL);

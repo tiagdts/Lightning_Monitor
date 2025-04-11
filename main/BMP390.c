@@ -207,16 +207,18 @@ esp_err_t BMP390_configure( uint8_t *cal_data )
 	//esp_err_t ret = BMP390_read( I2C_NUM_0, BMP390_REG_CALIB_DATA, cal_data, 21);
 	if(ret != ESP_OK ) return ret;
 	
-	/* Set Interrupt register to "data ready" - INT_CNTRL reg 0x19 */
+	/* Set Interrupt register to "data ready" - INT_CNTRL reg 0x19  */	
+	
 	//tmp_data = BMP390_INT_PIN_ACTIVE_HIGH | BMP390_INT_ON_DRDY | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
 	cmd[0] = BMP390_REG_INT_CTRL;
-	cmd[1] = BMP390_INT_PIN_ACTIVE_LOW | BMP390_INT_ON_DRDY | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
+//	cmd[1] = BMP390_INT_PIN_ACTIVE_LOW |  BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
 //	cmd[1] = BMP390_INT_PIN_ACTIVE_LOW | BMP390_INT_ON_DRDY | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_LATCH;
-//	cmd[1] = BMP390_INT_PIN_ACTIVE_HIGH | BMP390_INT_ON_DRDY | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
+	cmd[1] = BMP390_INT_PIN_ACTIVE_LOW | BMP390_INT_ON_DRDY | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
+//	cmd[1] = BMP390_INT_PIN_ACTIVE_HIGH | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
 	ret = i2c_master_transmit( BMP390_handle, cmd, sizeof(cmd), -1);
 	//ret  = BMP390_write(I2C_NUM_0, BMP390_REG_INT_CTRL, &tmp_data, 1);
 	if(ret != ESP_OK ) return ret;
-	
+
 	/* Set 2x over-sampling for temperature and x32 for pressure - OSR reg 0x1c */
 	cmd[0] = BMP390_REG_OSR;
 	cmd[1] = BMP390_PRES_OVERSAMPLING_2X | BMP390_NO_TEMP_OVERSAMPLING;

@@ -36,9 +36,16 @@
 #define			INDOOR_AFE		0b00100100		// AFE indoor setting
 #define			OUTDOOR_AFE		0b00011100		// AFE outdoor setting
 
+#define DISABLE_AS3935			0b00000001	
+
 #define REG_X01					0x01
 #define		NF_LEV_BITS			0b01110000		// Noise Floor Level
-#define		WDTH_BITS			0b00001111		// Watchdog threshold	
+#define		WDTH_BITS			0b00001111		// Watchdog threshold
+
+#define	 	WDTH_HIGH_NOISE_SETTING	0b00001010
+#define	 	WDTH_MID_NOISE_SETTING	0b00000101
+#define	 	WDTH_DEFAULT			0b00000010
+
 
 #define REG_X02					0x02
 #define 	CL_STAT_BIT			0b01000000		//	Clear statistics
@@ -123,5 +130,6 @@ void AS3935_Task(void *pvParameter);
 esp_err_t get_lightning( uint32_t *energy, uint8_t *distance );
 esp_err_t get_lightning_data( uint8_t *status, uint32_t *energy, uint8_t *distance );
 esp_err_t get_calibration_status( uint8_t *SRCO_status, uint8_t *TRCO_status );
+esp_err_t mod_AS3935_reg( uint8_t reg, uint8_t mask, uint8_t value );
 #endif /* MAIN_AS3935_H_ */
 

@@ -344,7 +344,6 @@ esp_err_t get_AS3935_reg( uint8_t reg, uint8_t *value )
 {
 
 	esp_err_t ret;
-	//uint8_t cmd = REG_X08;
 	uint8_t data[2] = {0,0};
 	spi_transaction_t t;
 	
@@ -356,7 +355,7 @@ esp_err_t get_AS3935_reg( uint8_t reg, uint8_t *value )
 	data[0] = SPI_READ | reg;
 
 
-		// read REG_X08 register
+		// read register
 	if( xSemaphoreTake( xSemaphore_SPI, TASK_WAIT_TIME / portTICK_PERIOD_MS ) == pdTRUE )
 	{
 		//printf("SPI read\n");
@@ -376,10 +375,39 @@ esp_err_t get_AS3935_reg( uint8_t reg, uint8_t *value )
 	return ret;
 }
 
+esp_err_t mod_AS3935_reg( uint8_t reg, uint8_t mask, uint8_t value )
+{
+
+	esp_err_t ret;
+	uint8_t tmp;
+		// read REG_X08 register
+	if( xSemaphoreTake( xSemaphore_SPI, TASK_WAIT_TIME / portTICK_PERIOD_MS ) == pdTRUE )
+	{
+		ret = get_AS3935_reg( reg, &tmp );
+		printf("tmp variable: %x\n",tmp);
+		
+		// preserve bits not in mask
+		tmp = tmp & ~mask;
+		printf("tmp & ~mask variable: %x\n",tmp);
+		
+		// set value
+		tmp = tmp | value;
+		printf("tmp  | value variable: %x\n",tmp);
+		
+		ret  = set_AS3935_reg( reg, tmp );
+
+		xSemaphoreGive( xSemaphore_SPI );
+	}
+	else ret = ESP_ERR_TIMEOUT;
+	
+	return ret;
+}
+
 esp_err_t set_AS3935_reg( uint8_t reg, uint8_t value )
 {
 
 	esp_err_t ret;
+	
 	uint8_t data[2];
 	spi_transaction_t t;
 	
