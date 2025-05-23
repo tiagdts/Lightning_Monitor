@@ -130,7 +130,7 @@ esp_err_t  read_adc( int *adc_volt )
 
 float mV_to_mA(int16_t mv)
 {
-	return ( (mv * mv * 0.0113) + ( mv * 0.5818 ) + -0.0192 );
+	return ( (mv * mv * -0.0032) + ( mv * 1.0976) + 4.7772 );
 }
 
 int calc_overall_mean( void )

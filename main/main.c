@@ -186,9 +186,9 @@ static void deep_sleep_task(void *args)
 	energy = 0;
 
 	/////////////// init ADC /////////////
-//	if( init_adc( ) == ESP_OK ) printf("adc initialized\n");
-//
-//		else  printf("adc initialization failed\n"); 
+	if( init_adc( ) == ESP_OK ) printf("adc initialized\n");
+
+		else  printf("adc initialization failed\n"); 
 
 	if( spi_available )
 	{
@@ -371,7 +371,7 @@ static void deep_sleep_task(void *args)
 		////////////// read battery charge current //////////////////
 		// int16_t raw_data = 0;
 		int mv_data = 0;	
-/*
+// /*
 		if( read_adc( &mv_data ) == ESP_OK)
 		{
 			data.batt_charge = mV_to_mA(mv_data);
@@ -382,7 +382,7 @@ static void deep_sleep_task(void *args)
 			printf("Battery Charge Current not read\n");
 			data.batt_charge = -100.0;
 		}
-*/
+// */
 //		data.batt_charge = 0;
 		//////////////// get sample time ///////////////////
 		time(&timestamp);

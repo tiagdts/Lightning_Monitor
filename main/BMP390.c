@@ -213,8 +213,8 @@ esp_err_t BMP390_configure( uint8_t *cal_data )
 	cmd[0] = BMP390_REG_INT_CTRL;
 //	cmd[1] = BMP390_INT_PIN_ACTIVE_LOW |  BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
 //	cmd[1] = BMP390_INT_PIN_ACTIVE_LOW | BMP390_INT_ON_DRDY | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_LATCH;
-	cmd[1] = BMP390_INT_PIN_ACTIVE_LOW | BMP390_INT_ON_DRDY | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
-//	cmd[1] = BMP390_INT_PIN_ACTIVE_HIGH | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
+//	cmd[1] = BMP390_INT_PIN_ACTIVE_LOW | BMP390_INT_ON_DRDY | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
+	cmd[1] = BMP390_INT_PIN_ACTIVE_HIGH | BMP390_INT_PIN_PUSH_PULL | BMP390_INT_PIN_NON_LATCH;
 	ret = i2c_master_transmit( BMP390_handle, cmd, sizeof(cmd), -1);
 	//ret  = BMP390_write(I2C_NUM_0, BMP390_REG_INT_CTRL, &tmp_data, 1);
 	if(ret != ESP_OK ) return ret;
@@ -228,7 +228,7 @@ esp_err_t BMP390_configure( uint8_t *cal_data )
 	
 	/* Set output data rate to 1/10 Hz -  ODR reg 0x1d */
 	cmd[0] = BMP390_REG_ODR;
-	cmd[1] = BMP390_ODR_0_1_HZ;
+	cmd[1] = BMP390_ODR_25_HZ;
 	ret = i2c_master_transmit( BMP390_handle, cmd, sizeof(cmd), -1);
 	//ret  = BMP390_write(I2C_NUM_0, BMP390_REG_ODR, &tmp_data, 1);
 	if(ret != ESP_OK ) return ret;
